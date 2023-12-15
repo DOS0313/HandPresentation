@@ -9,7 +9,8 @@
 
 
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtGui import QFont, QFontDatabase
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont, QFontDatabase, QImage, QPixmap
 
 
 class Ui_MainWindow(object):
@@ -131,6 +132,39 @@ class Ui_MainWindow(object):
         self.Action_Title.setText(_translate("MainWindow", "Action Key"))
         self.Apply_Btn.setText(_translate("MainWindow", "Apply"))
 
+    def display_frame(self, img):
+        """
+        OpenCV의 Mat 형식 영상을 PyQt5의 QGraphicsView에 표시
+        """
+        height, width, channel = img.shape
+        bytesPerLine = 3 * width
+        qImg = QImage(img.data, width, height, bytesPerLine, QImage.Format_RGB888)
+        pixmap = QPixmap.fromImage(qImg.rgbSwapped())
+
+        # 이미지 크기가 QGraphicsView보다 크면 축소하여 표시
+        view_width = self.Video.width()
+        view_height = self.Video.height()
+
+        # 이미지를 QGraphicsView에 맞도록 크기 조절
+        if width > view_width or height > view_height:
+            aspect_ratio = width / height
+            if aspect_ratio >= view_width / view_height:
+                new_width = view_width
+                new_height = int(view_width / aspect_ratio)
+            else:
+                new_height = view_height
+                new_width = int(view_height * aspect_ratio)
+
+            pixmap = pixmap.scaled(new_width, new_height, Qt.KeepAspectRatio)
+
+        # QGraphicsScene에 pixmap을 추가하여 QGraphicsView에 표시
+        scene = QtWidgets.QGraphicsScene()
+        scene.addPixmap(pixmap)
+
+        # Video에 scene 설정
+        self.Video.setScene(scene)
+        self.Video.show()
+
     # Move_Slider의 값에 따라 Move_Title 변경 함수
     def updateMove_Title(self, value):
         self.Move_Title.setText(f"Movement Value - {value}")
@@ -152,8 +186,104 @@ if __name__ == "__main__":
     fontDB.addApplicationFont('./font/PretendardVariable.ttf')
     app.setFont(QFont('Pretendard'))
 
+    import cv2
+    import mediapipe as mp
+    import numpy as np
+    import keyboard
+
+    max_num_hands = 2
+    gesture = {
+        0: 'fist', 1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five',
+        6: 'six', 7: 'rock', 8: 'spiderman', 9: 'yeah', 10: 'ok',
+    }  # 사용 안함
+    rps_gesture = {0: 'rock', 5: 'paper', 9: 'scissors'}
+
+    flag = False
+
+    # MediaPipe Hand landmark 모델
+    mp_hands = mp.solutions.hands
+    mp_drawing = mp.solutions.drawing_utils
+    hands = mp_hands.Hands(
+        max_num_hands=max_num_hands,
+        min_detection_confidence=0.5,
+        min_tracking_confidence=0.5)
+
+    # 제스쳐 인식 모델
+    file = np.genfromtxt('data/gesture_train.csv', delimiter=',')
+    angle = file[:, :-1].astype(np.float32)
+    label = file[:, -1].astype(np.float32)
+    knn = cv2.ml.KNearest_create()
+    knn.train(angle, cv2.ml.ROW_SAMPLE, label)
+
+    cap = cv2.VideoCapture(0)
+
     MainWindow = QtWidgets.QMainWindow()
     ui = Ui_MainWindow()
     ui.setupUi(MainWindow)
     MainWindow.show()
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        frame = cv2.flip(frame, 1)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        result = hands.process(frame)
+
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+        if result.multi_hand_landmarks is not None:
+            for res in result.multi_hand_landmarks:
+                joint = np.zeros((21, 3))
+                for j, lm in enumerate(res.landmark):
+                    joint[j] = [lm.x, lm.y, lm.z]
+
+                # 관절끼리의 각도 계산
+                v1 = joint[[0, 1, 2, 3, 0, 5, 6, 7, 0, 9, 10, 11, 0, 13, 14, 15, 0, 17, 18, 19], :]  # Parent joint
+                v2 = joint[[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], :]  # Child joint
+                v = v2 - v1  # [20,3]
+                # v로 정규화
+                v = v / np.linalg.norm(v, axis=1)[:, np.newaxis]
+
+                # Get angle using arcos of dot product
+                angle = np.arccos(np.einsum('nt,nt->n',
+                                            v[[0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 16, 17, 18], :],
+                                            v[[1, 2, 3, 5, 6, 7, 9, 10, 11, 13, 14, 15, 17, 18, 19], :]))  # [15,]
+
+                angle = np.degrees(angle)  # Convert radian to degree
+
+                # 제스처 인터페이스
+                data = np.array([angle], dtype=np.float32)
+                ret, results, neighbours, dist = knn.findNearest(data, 3)
+                idx = int(results[0][0])
+
+                # 결과값 인터페이스에 표기
+                if idx in rps_gesture.keys():
+                    cv2.putText(frame, text=rps_gesture[idx].upper(),
+                                org=(int(res.landmark[0].x * frame.shape[1]), int(res.landmark[0].y * frame.shape[0] + 20)),
+                                fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, color=(255, 255, 255), thickness=2)
+
+                    # print(res.landmark)
+
+                    if rps_gesture [idx] == 'rock': # 해당 부분이 키보드 입력부
+                        if not flag:
+                            keyboard.send("space")
+                            flag = True
+                    else:
+                        flag = False
+
+                mp_drawing.draw_landmarks(frame, res, mp_hands.HAND_CONNECTIONS)
+
+        # frame을 mainUi.py의 Video에 표시
+        ui.display_frame(frame)
+
+        # Qt 이벤트 루프 처리
+        QtWidgets.QApplication.processEvents()
+
+        # 영상 재생 종료 시 해제
+    cap.release()
+    cv2.destroyAllWindows()
+
     sys.exit(app.exec_())

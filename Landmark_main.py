@@ -22,7 +22,7 @@ hands = mp_hands.Hands(
 
 # 제스쳐 인식 모델
 file = np.genfromtxt('data/gesture_train.csv', delimiter=',')
-angle = file[:,:-1].astype(np.float32)
+angle = file[:,:-1].    astype(np.float32)
 label = file[:, -1].astype(np.float32)
 knn = cv2.ml.KNearest_create()
 knn.train(angle, cv2.ml.ROW_SAMPLE, label)
@@ -67,12 +67,12 @@ while cap.isOpened():
             idx = int(results[0][0])
 
             # 결과값 인터페이스에 표기
-            if idx in rps_gesture.keys():
-                cv2.putText(img, text=rps_gesture[idx].upper(), org=(int(res.landmark[0].x * img.shape[1]), int(res.landmark[0].y * img.shape[0] + 20)), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, color=(255, 255, 255), thickness=2)
+            if idx in gesture.keys():
+                cv2.putText(img, text=gesture[idx].upper(), org=(int(res.landmark[0].x * img.shape[1]), int(res.landmark[0].y * img.shape[0] + 20)), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, color=(255, 255, 255), thickness=2)
 
-                print(res.landmark)
+                # print(res.landmark)
 
-                if rps_gesture[idx] == 'rock':
+                if gesture[idx] == 'rock':
                     if not flag:
                         keyboard.send("space")
                         flag = True
@@ -81,6 +81,6 @@ while cap.isOpened():
 
             mp_drawing.draw_landmarks(img, res, mp_hands.HAND_CONNECTIONS)
 
-    cv2.imshow('Game', img)
+    cv2.imshow('Track', img)
     if cv2.waitKey(1) == ord('q'):
         break
