@@ -50,6 +50,7 @@ class Ui_MainWindow(object):
         self.Input_Combo.setObjectName("Input_Combo")
         self.Input_Combo.addItem("")
         self.Input_Combo.addItem("")
+        self.Input_Combo.currentIndexChanged.connect(self.onInputComboChanged)
         self.Options_Space.addWidget(self.Input_Combo)
         self.Move_Title = QtWidgets.QLabel(self.centralwidget)
         self.Move_Title.setStyleSheet("color: rgb(255, 255, 255);")
@@ -78,6 +79,10 @@ class Ui_MainWindow(object):
         self.Gesture_Slider.addItem("")
         self.Gesture_Slider.addItem("")
         self.Options_Space.addWidget(self.Gesture_Slider)
+
+        self.Gesture_Title.hide()
+        self.Gesture_Slider.hide()
+
         self.Action_Title = QtWidgets.QLabel(self.centralwidget)
         self.Action_Title.setStyleSheet("color: rgb(255, 255, 255);")
         self.Action_Title.setObjectName("Action_Title")
@@ -131,6 +136,18 @@ class Ui_MainWindow(object):
         self.Gesture_Slider.setItemText(2, _translate("MainWindow", "Paper"))
         self.Action_Title.setText(_translate("MainWindow", "Action Key"))
         self.Apply_Btn.setText(_translate("MainWindow", "Apply"))
+
+    def onInputComboChanged(self, index):
+        if index == 0:  # Movement 선택 시
+            self.Move_Title.show()
+            self.Move_Slider.show()
+            self.Gesture_Title.hide()
+            self.Gesture_Slider.hide()
+        elif index == 1:  # Gesture 선택 시
+            self.Move_Title.hide()
+            self.Move_Slider.hide()
+            self.Gesture_Title.show()
+            self.Gesture_Slider.show()
 
     def display_frame(self, img):
         """
