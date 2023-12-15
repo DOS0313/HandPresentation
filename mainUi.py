@@ -50,6 +50,8 @@ class Ui_MainWindow(object):
         self.Input_Combo.setObjectName("Input_Combo")
         self.Input_Combo.addItem("")
         self.Input_Combo.addItem("")
+        self.gesture_type = 'rock'  # 초기값 설정
+        self.action_key = 'space'  # 초기값 설정
         self.Input_Combo.currentIndexChanged.connect(self.onInputComboChanged)
         self.Options_Space.addWidget(self.Input_Combo)
         self.Move_Title = QtWidgets.QLabel(self.centralwidget)
@@ -108,6 +110,7 @@ class Ui_MainWindow(object):
         self.Apply_Btn.setFlat(False)
         self.Apply_Btn.setObjectName("Apply_Btn")
         self.Apply_Btn.setMinimumHeight(72)
+        self.Apply_Btn.clicked.connect(self.apply_button_clicked)
         self.Options_Space.addWidget(self.Apply_Btn)
         self.horizontalLayout.addLayout(self.Options_Space)
         MainWindow.setCentralWidget(self.centralwidget)
@@ -149,6 +152,21 @@ class Ui_MainWindow(object):
             self.Gesture_Title.show()
             self.Gesture_Slider.show()
 
+    # 'Apply' 버튼이 눌렸을 때의 동작 추가
+    def apply_button_clicked(self):
+        # Gesture Combo의 현재 선택값을 gesture_type 변수에 할당
+        gesture_type_index = self.Gesture_Slider.currentIndex()
+        if gesture_type_index == 0:
+            self.gesture_type = 'rock'
+        elif gesture_type_index == 1:
+            self.gesture_type = 'scissor'
+        elif gesture_type_index == 2:
+            self.gesture_type = 'paper'
+
+        # Action Key 값
+        action_key_sequence = self.Action_Key.keySequence()
+        self.action_key = action_key_sequence.toString()
+
     def display_frame(self, img):
         """
         OpenCV의 Mat 형식 영상을 PyQt5의 QGraphicsView에 표시
@@ -187,8 +205,8 @@ class Ui_MainWindow(object):
         self.Move_Title.setText(f"Movement Value - {value}")
 
     def limitKeySequence(self, key_sequence):
-        if len(key_sequence.toString()) > 2:  # 허용된 최대 키 개수 이상 입력된 경우
-            keys = key_sequence.toString().split(', ')[:2]  # 쉼표로 구분된 키들을 가져옴 (최대 2개)
+        if len(key_sequence.toString()) > 1:  # 허용된 최대 키 개수 이상 입력된 경우
+            keys = key_sequence.toString().split(', ')[:1]  # 쉼표로 구분된 키들을 가져옴 (최대 2개)
             new_sequence = ', '.join(keys)  # 최대 2개의 키로 조합된 새로운 시퀀스 생성
             self.Action_Key.setKeySequence(new_sequence) # 새로운 시퀀스로 설정
 
@@ -284,9 +302,9 @@ if __name__ == "__main__":
 
                     # print(res.landmark)
 
-                    if rps_gesture [idx] == 'rock': # 해당 부분이 키보드 입력부
+                    if rps_gesture [idx] == ui.gesture_type: # 해당 부분이 키보드 입력부
                         if not flag:
-                            keyboard.send("space")
+                            keyboard.send(ui.action_key)
                             flag = True
                     else:
                         flag = False
